@@ -24,6 +24,7 @@ if (!defined('CXM_RADIOSTATUS')) {
 }
 
 require_once CXM_RADIOSTATUS.'infusion_db.php';
+require_once CXM_RADIOSTATUS.'cxm_radiostatus_captcha.php';
 if (file_exists(CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php')) {
     require CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php';
 } else {
@@ -87,15 +88,8 @@ if (dbrows($result)) {
 
             // CAPTCHA für Gäste
             if (!iMEMBER) {
-                $captcha_path = INCLUDES.(!empty($settings['captcha']) ? 'captchas/' : '').'securimage/';
                 echo '<tr><td class="tbl2">'.$locale['cxmrswb_captcha'].' <span class="cxm-rs-required">*</span></td>'
-                    .'<td class="tbl2">'
-                    .'<img id="cxm_wb_captcha_'.$rs_id.'" src="'.$captcha_path.'securimage_show.php" alt="" /><br />'
-                    .'<a href="#" onclick=\'document.getElementById("cxm_wb_captcha_'.$rs_id.'").src="'
-                    .$captcha_path.'securimage_show.php?sid="+Math.random();return false\'>'
-                    .'<img src="'.$captcha_path.'images/refresh.gif" alt="" /></a>'
-                    .'<input type="text" id="cxm_wb_code_'.$rs_id.'" name="code" class="textbox cxm-rs-form-wide" />'
-                    .'</td></tr>';
+                    .'<td class="tbl2">'.cxm_rs_captcha_html('cxm_wb_code_'.$rs_id).'</td></tr>';
             }
 
             // Absenden

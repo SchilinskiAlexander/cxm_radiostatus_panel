@@ -28,7 +28,7 @@ if (file_exists(INFUSIONS.'cxm_radiostatus_panel/locale/'.LOCALESET.'index.php')
 
 $inf_title       = $locale['cxmrs_title'];
 $inf_description = $locale['cxmrs_desc'];
-$inf_version     = '1.0';
+$inf_version     = '1.1';
 $inf_developer   = 'Alexaxander Schilinski';
 $inf_email       = '';
 $inf_weburl      = 'https://schilinskialexander.com';

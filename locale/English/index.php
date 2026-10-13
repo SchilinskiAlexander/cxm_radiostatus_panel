@@ -36,6 +36,11 @@ $locale['cxmrs_onair']    = 'On Air';
 $locale['cxmrs_player_popup'] = 'HTML5 player popup';
 $locale['cxmrs_player_m3u']   = 'Download M3U';
 $locale['cxmrs_player_pls']   = 'Download PLS';
+$locale['cxmrs_player_play']  = 'Play';
+$locale['cxmrs_player_pause'] = 'Pause';
+$locale['cxmrs_player_mute']  = 'Mute';
+$locale['cxmrs_player_volume']= 'Volume';
+$locale['cxmrs_player_error'] = 'The stream could not be loaded.';
 
 // Wishbox
 $locale['cxmrswb_title']      = 'Wishbox';

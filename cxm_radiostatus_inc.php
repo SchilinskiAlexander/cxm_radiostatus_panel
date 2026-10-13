@@ -30,6 +30,7 @@ if (!defined('CXM_RADIOSTATUS')) {
 }
 
 require_once CXM_RADIOSTATUS.'infusion_db.php';
+require_once CXM_RADIOSTATUS.'cxm_radiostatus_captcha.php';
 if (file_exists(CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php')) {
     require CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php';
 } else {
@@ -74,7 +75,7 @@ function cxm_rs_player($info) {
     global $settings, $locale;
 
     $base = $settings['siteurl'].str_replace('../', '', CXM_RADIOSTATUS).'cxm_radiostatus_player.php?id='.(int)$info['rs_id'];
-    $popup = "window.open('".$base."&amp;typ=popup','cxmrs_player','height=240,width=420,top=' + Math.round((screen.height - 240) / 2) + ',left=' + Math.round((screen.width - 420) / 2) + ',resizable=yes'); return false;";
+    $popup = "window.open('".$base."&amp;typ=popup','cxmrs_player','height=440,width=500,top=' + Math.round((screen.height - 440) / 2) + ',left=' + Math.round((screen.width - 500) / 2) + ',resizable=yes'); return false;";
 
     $html = '<span class="cxm-rs-player-icons">';
     $html .= '<a href="'.$base.'&amp;p=m3u" title="'.$locale['cxmrs_player_m3u'].'" class="cxm-rs-player-link">'
@@ -283,15 +284,11 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
         if ($data['rs_status_wb'] && checkgroup($data['rs_access_wb'])) {
             echo 'function updateWB_'.$id.'(){$("#cxm_rs_wb_'.$id.'").toggle("slow");}';
             echo 'function check_wb_'.$id.'(){'
-                .'var formData={'
-                .'wb:"'.$id.'",'
-                .'name:$("#cxm_wb_name_'.$id.'").val(),'
-                .'wunsch:$("#cxm_wb_wunsch_'.$id.'").val(),'
-                .'nachricht:$("#cxm_wb_nachricht_'.$id.'").val(),'
-                .'code:$("#cxm_wb_code_'.$id.'").val()'
-                .'};'
+                .'var formData=$("#cxm_wb_form_'.$id.'").serialize()+"&wb='.$id.'";'
                 .'$.ajax({url:"'.$self.'cxm_radiostatus_inc.php",type:"POST",data:formData,'
-                .'success:function(r){$("#cxm_rs_wb_check_'.$id.'").html(r).show();}});'
+                .'success:function(r){$("#cxm_rs_wb_check_'.$id.'").html(r).show();'
+                .cxm_rs_captcha_reset_js('"#cxm_wb_form_'.$id.'"')
+                .'}});'
                 .'return false;}';
         }
     }
@@ -314,10 +311,7 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
 } elseif (isset($_POST['wb']) && isnum($_POST['wb'])) {
 
     sleep(3);
-    require_once INCLUDES.(!empty($settings['captcha']) ? 'captchas/' : '').'securimage/securimage.php';
-    $securimage = new Securimage();
-
-    if (iMEMBER || (isset($_POST['code']) && $securimage->check($_POST['code']) == true)) {
+    if (iMEMBER || cxm_rs_captcha_valid()) {
         $wb_id = intval($_POST['wb']);
         $result = dbquery("SELECT rs_id, rs_station, rs_stream_url, rs_cache, rs_status_wb, rs_wb_max, rs_wb_max_user, rs_access_wb FROM ".DB_CXM_RADIOSTATUS
             ." WHERE ".groupaccess("rs_access")." AND rs_id='".$wb_id."' AND rs_status='1'");

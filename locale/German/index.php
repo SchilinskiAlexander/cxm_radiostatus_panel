@@ -36,6 +36,11 @@ $locale['cxmrs_onair']    = 'OnAir';
 $locale['cxmrs_player_popup'] = 'HTML5-Player im Popup';
 $locale['cxmrs_player_m3u']   = 'M3U herunterladen';
 $locale['cxmrs_player_pls']   = 'PLS herunterladen';
+$locale['cxmrs_player_play']  = 'Abspielen';
+$locale['cxmrs_player_pause'] = 'Pause';
+$locale['cxmrs_player_mute']  = 'Stumm schalten';
+$locale['cxmrs_player_volume']= 'Lautstärke';
+$locale['cxmrs_player_error'] = 'Stream konnte nicht geladen werden.';
 
 // Wunschbox
 $locale['cxmrswb_title']      = 'Wunschbox';
