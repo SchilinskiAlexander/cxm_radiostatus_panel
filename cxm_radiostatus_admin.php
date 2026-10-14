@@ -31,6 +31,8 @@ if (!defined('CXM_RADIOSTATUS')) {
 }
 
 require_once CXM_RADIOSTATUS.'infusion_db.php';
+require_once CXM_RADIOSTATUS.'cxm_radiostatus_class.php';
+cxm_rs_ensure_schema();
 if (file_exists(CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php')) {
     require CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php';
 } else {
@@ -154,7 +156,10 @@ if ($tab === 'streams' || $tab === 'stream') {
     // Stream speichern (INSERT / UPDATE)
     if ($tab === 'stream' && isset($_POST['save_stream'])) {
         $rs_name       = stripinput($_POST['rs_name']);
-        $rs_station    = stripinput($_POST['rs_station']);
+        $rs_source     = (isset($_POST['rs_source']) && $_POST['rs_source'] === 'lexycast') ? 'lexycast' : 'lautfm';
+        $rs_station    = $rs_source === 'lexycast'
+            ? stripinput(LexyCastAPI::normalizeStation($_POST['rs_station']))
+            : stripinput($_POST['rs_station']);
         $rs_panel      = intval($_POST['rs_panel']);
         $rs_show_image = isset($_POST['rs_show_image']) ? 1 : 0;
         $rs_show_next  = isset($_POST['rs_show_next'])  ? 1 : 0;
@@ -170,8 +175,15 @@ if ($tab === 'streams' || $tab === 'stream') {
 
         if (isset($_POST['rs_id']) && isnum($_POST['rs_id'])) {
             $rs_id = intval($_POST['rs_id']);
+            // Cache verwerfen, damit Quelle/Station sofort neu abgefragt werden
+            $old = dbarray(dbquery("SELECT rs_cache FROM ".DB_CXM_RADIOSTATUS." WHERE rs_id='".$rs_id."'"));
+            if ($old) {
+                $cf = CXM_RADIOSTATUS.'cache/stream_'.$rs_id.'_'.$old['rs_cache'].'.php';
+                if (file_exists($cf)) { @unlink($cf); }
+            }
             dbquery("UPDATE ".DB_CXM_RADIOSTATUS." SET"
                 ." rs_name='".$rs_name."',"
+                ." rs_source='".$rs_source."',"
                 ." rs_station='".$rs_station."',"
                 ." rs_panel='".$rs_panel."',"
                 ." rs_show_image='".$rs_show_image."',"
@@ -191,10 +203,10 @@ if ($tab === 'streams' || $tab === 'stream') {
             $rs_order_r = dbarray(dbquery("SELECT MAX(rs_order) AS mo FROM ".DB_CXM_RADIOSTATUS));
             $rs_order = $rs_order_r ? (int)$rs_order_r['mo'] + 1 : 1;
             dbquery("INSERT INTO ".DB_CXM_RADIOSTATUS
-                ." (rs_name, rs_station, rs_panel, rs_order, rs_status, rs_cache, rs_theme,"
+                ." (rs_name, rs_source, rs_station, rs_panel, rs_order, rs_status, rs_cache, rs_theme,"
                 ."  rs_access, rs_show_image, rs_show_next, rs_stream_url,"
                 ."  rs_status_wb, rs_wb_max, rs_wb_max_user, rs_wb_popup, rs_access_wb)"
-                ." VALUES ('".$rs_name."', '".$rs_station."', '".$rs_panel."', '".$rs_order."',"
+                ." VALUES ('".$rs_name."', '".$rs_source."', '".$rs_station."', '".$rs_panel."', '".$rs_order."',"
                 ." '".$rs_status."', '".$rs_cache."', '".$rs_theme."',"
                 ." '".$rs_access."', '".$rs_show_image."', '".$rs_show_next."', '".$rs_stream_url."',"
                 ." '".$rs_status_wb."', '".$rs_wb_max."', '".$rs_wb_max_user."', '".$rs_wb_popup."', '".$rs_access_wb."')");
@@ -240,7 +252,7 @@ $wb_unread = dbcount("(wb_id)", DB_CXM_RADIOSTATUS_WUNSCHBOX, "wb_status='0'");
 echo '<div class="cxm-rs-admin">';
 echo '<div class="cxm-rs-admin-hero">';
 echo '<div class="cxm-rs-admin-hero-copy">';
-echo '<span class="cxm-rs-admin-kicker">Laut.fm Panel</span>';
+echo '<span class="cxm-rs-admin-kicker">laut.fm · LexyCast</span>';
 echo '<h1>'.$locale['cxmrs_title'].'</h1>';
 echo '<p>Streams, Player, Panel-Ausgabe und Wunschbox zentral verwalten.</p>';
 echo '</div>';
@@ -288,9 +300,42 @@ if ($tab === 'stream') {
     echo '<tr><td class="tbl2" width="30%">'.$locale['cxmrsa_name'].'</td>'
         .'<td class="tbl2"><input type="text" name="rs_name" value="'.$v('rs_name').'" class="textbox cxm-rs-input-medium" /></td></tr>';
 
-    echo '<tr><td class="tbl2">'.$locale['cxmrsa_station'].'</td>'
-        .'<td class="tbl2"><input type="text" id="rs_station" name="rs_station" value="'.$v('rs_station').'" class="textbox cxm-rs-input-station" />'
-        .' <button type="button" class="button cxm-rs-button-ghost" onclick="window.open(\'https://api.laut.fm/station/\'+document.getElementById(\'rs_station\').value,\'_blank\')">'.$locale['cxmrsa_preview'].'</button></td></tr>';
+    $source = $v('rs_source', 'lautfm') === 'lexycast' ? 'lexycast' : 'lautfm';
+    echo '<tr><td class="tbl2">'.$locale['cxmrsa_source'].'</td><td class="tbl2"><select name="rs_source" id="rs_source" onchange="cxmRsSourceChange()">';
+    foreach (array('lautfm' => $locale['cxmrsa_source_lautfm'], 'lexycast' => $locale['cxmrsa_source_lexycast']) as $sv => $sl) {
+        echo '<option value="'.$sv.'"'.($source === $sv ? ' selected="selected"' : '').'>'.$sl.'</option>';
+    }
+    echo '</select></td></tr>';
+
+    echo '<tr><td class="tbl2" id="rs_station_label">'.($source === 'lexycast' ? $locale['cxmrsa_station_lexycast'] : $locale['cxmrsa_station']).'</td>'
+        .'<td class="tbl2"><input type="text" id="rs_station" name="rs_station" value="'.$v('rs_station').'" class="textbox cxm-rs-input-medium"'
+        .' placeholder="'.($source === 'lexycast' ? 'https://c02.lexycast.de:4020' : '').'" />'
+        .' <button type="button" class="button cxm-rs-button-ghost" onclick="cxmRsPreviewStation()">'.$locale['cxmrsa_preview'].'</button>'
+        .'<br /><span class="small" id="rs_station_hint">'.($source === 'lexycast' ? $locale['cxmrsa_station_lexycast_hint'] : '').'</span></td></tr>';
+
+    echo '<script type="text/javascript">
+    var cxmRsSourceText = '.json_encode(array(
+        'lautfm'   => array('label' => $locale['cxmrsa_station'], 'hint' => '', 'placeholder' => ''),
+        'lexycast' => array('label' => $locale['cxmrsa_station_lexycast'], 'hint' => $locale['cxmrsa_station_lexycast_hint'], 'placeholder' => 'https://c02.lexycast.de:4020'),
+    )).';
+    function cxmRsSourceChange() {
+        var t = cxmRsSourceText[document.getElementById("rs_source").value];
+        document.getElementById("rs_station_label").textContent = t.label;
+        document.getElementById("rs_station_hint").textContent = t.hint;
+        document.getElementById("rs_station").setAttribute("placeholder", t.placeholder);
+    }
+    function cxmRsPreviewStation() {
+        var value = document.getElementById("rs_station").value.replace(/^\s+|\s+$/g, "");
+        if (document.getElementById("rs_source").value === "lexycast") {
+            var server = value.match(/#(\d+)$/);
+            value = value.replace(/#\d+$/, "").replace(/\/+$/, "").replace(/\/api(\/v\d+)?$/i, "");
+            if (!/^https?:\/\//i.test(value)) { value = "https://" + value; }
+            window.open(value + "/api/v2/" + (server ? "channels/?server=" + server[1] : "servers/"), "_blank");
+        } else {
+            window.open("https://api.laut.fm/station/" + encodeURIComponent(value), "_blank");
+        }
+    }
+    </script>';
 
     echo '<tr><td class="tbl2">'.$locale['cxmrsa_panel'].'</td><td class="tbl2"><select name="rs_panel">';
     foreach (array(1 => $locale['cxmrsa_panel_1'], 2 => $locale['cxmrsa_panel_2'], 3 => $locale['cxmrsa_panel_3'], 4 => $locale['cxmrsa_panel_4']) as $pv => $pl) {
@@ -376,7 +421,9 @@ if ($tab === 'stream') {
 
             echo '<tr>'
                 .'<td class="tbl1"><strong>'.htmlspecialchars($row['rs_name']).'</strong></td>'
-                .'<td class="tbl1"><code>'.htmlspecialchars($row['rs_station']).'</code></td>'
+                .'<td class="tbl1"><span class="cxm-rs-badge cxm-rs-badge-source">'
+                .(isset($row['rs_source']) && $row['rs_source'] === 'lexycast' ? $locale['cxmrsa_source_lexycast'] : $locale['cxmrsa_source_lautfm'])
+                .'</span> <code>'.htmlspecialchars($row['rs_station']).'</code></td>'
                 .'<td class="tbl1">'.(isset($panel_labels[$row['rs_panel']]) ? $panel_labels[$row['rs_panel']] : $row['rs_panel']).'</td>'
                 .'<td class="tbl1"><span class="cxm-rs-badge '.$status_class.'">'.($row['rs_status'] ? $locale['cxmrsa_active'] : $locale['cxmrsa_inactive']).'</span></td>'
                 .'<td class="tbl1">'

@@ -37,7 +37,7 @@ $stream_id = (int)$_GET['id'];
 $mode = isset($_GET['p']) ? stripinput($_GET['p']) : '';
 $type = isset($_GET['typ']) ? stripinput($_GET['typ']) : '';
 
-$result = dbquery("SELECT rs_id, rs_name, rs_station, rs_stream_url, rs_cache, rs_status_wb, rs_access_wb FROM ".DB_CXM_RADIOSTATUS." WHERE ".groupaccess("rs_access")." AND rs_status='1' AND rs_id='".$stream_id."'");
+$result = dbquery("SELECT * FROM ".DB_CXM_RADIOSTATUS." WHERE ".groupaccess("rs_access")." AND rs_status='1' AND rs_id='".$stream_id."'");
 if (!dbrows($result)) {
     die();
 }
@@ -47,7 +47,7 @@ $cache = array();
 $cache_file = CXM_RADIOSTATUS.'cache/stream_'.$data['rs_id'].'_'.$data['rs_cache'].'.php';
 if (!file_exists($cache_file) || filemtime($cache_file) <= (time() - (int)$cxm_radiostatus_settings['reload_cache'])) {
     require_once CXM_RADIOSTATUS.'cxm_radiostatus_class.php';
-    $api = new LautFmAPI($data['rs_station'], $cxm_radiostatus_settings['api_base']);
+    $api = cxm_rs_create_api($data);
     $res = $api->makeCache($data['rs_id'], $data['rs_cache'], $data['rs_stream_url']);
     $cache_dir = dirname($cache_file);
     $f = is_dir($cache_dir) && is_writable($cache_dir) ? @fopen($cache_file, 'w') : false;
@@ -93,7 +93,7 @@ if ($mode === 'm3u' || $mode === 'pls') {
     }
     $download->set_bydata($content);
     $download->use_resume = true;
-    $download->set_filename($data['rs_station'].'.'.$mode);
+    $download->set_filename(preg_replace('/[^A-Za-z0-9_-]+/', '_', $data['rs_name']).'.'.$mode);
     $download->download();
     exit;
 }
@@ -153,7 +153,7 @@ if ($type !== 'popup' && $type !== 'wb' && $type !== 'embed') {
     redirect(BASEDIR.'index.php');
 }
 
-$base_player_url = $settings['siteurl'].str_replace('../', '', CXM_RADIOSTATUS).'cxm_radiostatus_player.php?id='.(int)$data['rs_id'];
+$base_player_url = cxm_rs_web_path().'cxm_radiostatus_player.php?id='.(int)$data['rs_id'];
 $popup_js = "window.open(this.href,'cxmrs_player','height=440,width=500,top=' + Math.round((screen.height - 440) / 2) + ',left=' + Math.round((screen.width - 500) / 2) + ',resizable=yes'); return false;";
 $player_links = '<a href="'.$base_player_url.'&amp;p=m3u" title="'.htmlspecialchars($locale['cxmrs_player_m3u']).'">'
     .'<img src="'.htmlspecialchars(CXM_RADIOSTATUS.'images/player_m3u.svg').'" alt="'.htmlspecialchars($locale['cxmrs_player_m3u']).'" width="22" height="22" /></a>'
@@ -188,7 +188,7 @@ $player_config = array(
     function cxmSubmitPopupWB() {
         var form = $("#cxm_wb_popup_form");
         $.ajax({
-            url: "<?php echo $settings['siteurl'].str_replace('../', '', CXM_RADIOSTATUS); ?>cxm_radiostatus_inc.php",
+            url: "<?php echo cxm_rs_web_path(); ?>cxm_radiostatus_inc.php",
             type: "POST",
             data: form.serialize(),
             success: function (response) {

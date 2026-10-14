@@ -39,6 +39,28 @@ $cxm_radiostatus_settings = array(
     'wb_time'      => '%d.%m. %H:%M',
 );
 
+// Pfad der Infusion ab Domain-Root (z.B. /infusions/cxm_radiostatus_panel/), ohne Host.
+// Für AJAX/Popups, damit www/ohne www bzw. http/https keine CORS-Fehler auslösen.
+if (!function_exists('cxm_rs_web_path')) {
+    function cxm_rs_web_path() {
+        global $settings;
+
+        $base = !empty($settings['siteurl']) ? parse_url($settings['siteurl'], PHP_URL_PATH) : '/';
+        $base = '/'.trim((string)$base, '/');
+        return rtrim($base, '/').'/'.ltrim(str_replace('../', '', CXM_RADIOSTATUS), '/');
+    }
+}
+
+// Bestehende Installationen (vor 1.2) um die Spalte rs_source ergänzen
+if (!function_exists('cxm_rs_ensure_schema')) {
+    function cxm_rs_ensure_schema() {
+        $result = dbquery("SHOW COLUMNS FROM ".DB_CXM_RADIOSTATUS." LIKE 'rs_source'");
+        if ($result && !dbrows($result)) {
+            dbquery("ALTER TABLE ".DB_CXM_RADIOSTATUS." ADD rs_source VARCHAR(10) NOT NULL DEFAULT 'lautfm' AFTER rs_name");
+        }
+    }
+}
+
 if (defined('DB_SETTINGS_INF')) {
     $set_result = dbquery("SELECT settings_name, settings_value FROM ".DB_SETTINGS_INF." WHERE settings_inf='cxm_radiostatus_panel'");
     if (dbrows($set_result)) {

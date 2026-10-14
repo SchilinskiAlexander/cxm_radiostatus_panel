@@ -48,7 +48,7 @@ function cxm_rs_load_cache($stream) {
     $cache_file = CXM_RADIOSTATUS.'cache/stream_'.$stream['rs_id'].'_'.$stream['rs_cache'].'.php';
     if (!file_exists($cache_file) || filemtime($cache_file) <= (time() - (int)$cxm_radiostatus_settings['reload_cache'])) {
         require_once CXM_RADIOSTATUS.'cxm_radiostatus_class.php';
-        $api = new LautFmAPI($stream['rs_station'], $cxm_radiostatus_settings['api_base']);
+        $api = cxm_rs_create_api($stream);
         $res = $api->makeCache($stream['rs_id'], $stream['rs_cache'], $stream['rs_stream_url']);
         $cache_dir = dirname($cache_file);
         $f = is_dir($cache_dir) && is_writable($cache_dir) ? @fopen($cache_file, 'w') : false;
@@ -74,7 +74,7 @@ function cxm_rs_has_live_moderator($cache) {
 function cxm_rs_player($info) {
     global $settings, $locale;
 
-    $base = $settings['siteurl'].str_replace('../', '', CXM_RADIOSTATUS).'cxm_radiostatus_player.php?id='.(int)$info['rs_id'];
+    $base = cxm_rs_web_path().'cxm_radiostatus_player.php?id='.(int)$info['rs_id'];
     $popup = "window.open('".$base."&amp;typ=popup','cxmrs_player','height=440,width=500,top=' + Math.round((screen.height - 440) / 2) + ',left=' + Math.round((screen.width - 500) / 2) + ',resizable=yes'); return false;";
 
     $html = '<span class="cxm-rs-player-icons">';
@@ -219,7 +219,7 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
 
             if ($data['rs_status_wb'] && checkgroup($data['rs_access_wb']) && cxm_rs_has_live_moderator($cache)) {
                 if (!empty($data['rs_wb_popup'])) {
-                    $wb_url = $settings['siteurl'].str_replace('../', '', CXM_RADIOSTATUS).'cxm_radiostatus_player.php?id='.(int)$data['rs_id'].'&typ=wb';
+                    $wb_url = cxm_rs_web_path().'cxm_radiostatus_player.php?id='.(int)$data['rs_id'].'&typ=wb';
                     $cache['wb_button_html'] = '<button type="button" onclick="window.open(\''.$wb_url.'\',\'cxmrs_wb\',\'height=430,width=560,top=\' + Math.round((screen.height - 430) / 2) + \',left=\' + Math.round((screen.width - 560) / 2) + \',resizable=yes\'); return false;" class="button cxm-rs-wb-btn">'
                         .$locale['cxmrswb_open'].'</button>';
                 } else {
@@ -242,7 +242,7 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
     $panel = intval($_GET['js']);
     header('Content-Type: text/javascript');
 
-    $self     = $settings['siteurl'].str_replace('../', '', CXM_RADIOSTATUS);
+    $self     = cxm_rs_web_path();
     $reload   = ($panel == 1 || $panel == 4)
                 ? (int)$cxm_radiostatus_settings['reload_side']
                 : (int)$cxm_radiostatus_settings['reload_main'];
@@ -313,7 +313,7 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
     sleep(3);
     if (iMEMBER || cxm_rs_captcha_valid()) {
         $wb_id = intval($_POST['wb']);
-        $result = dbquery("SELECT rs_id, rs_station, rs_stream_url, rs_cache, rs_status_wb, rs_wb_max, rs_wb_max_user, rs_access_wb FROM ".DB_CXM_RADIOSTATUS
+        $result = dbquery("SELECT * FROM ".DB_CXM_RADIOSTATUS
             ." WHERE ".groupaccess("rs_access")." AND rs_id='".$wb_id."' AND rs_status='1'");
         if (dbrows($result)) {
             $data = dbarray($result);

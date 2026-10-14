@@ -1,12 +1,13 @@
 # CxM Radiostatus Panel
 
-PHP-Fusion-Infusion zur Anzeige von laut.fm Radiostream-Status, Player-Links, aktuellen Metadaten, Verlauf, kommenden Künstlern und einer moderierten Wunschbox.
+PHP-Fusion-Infusion zur Anzeige von laut.fm- und LexyCast-Radiostream-Status, Player-Links, aktuellen Metadaten, Verlauf, kommenden Künstlern und einer moderierten Wunschbox.
 
 Englische Dokumentation: [README.md](README.md)
 
 ## Funktionen
 
-- Zeigt eine oder mehrere konfigurierte laut.fm-Stationen in PHP-Fusion-Panels an.
+- Zeigt eine oder mehrere konfigurierte Stationen in PHP-Fusion-Panels an, pro Stream wählbar: **laut.fm** oder **LexyCast**.
+- LexyCast: nur die Panel-Adresse mit Port eintragen (z. B. `https://c02.lexycast.de:4020`). Sender, Kanal, Stream-URL, Titel mit Cover und Album, Verlauf, Hörerzahl und Live-Moderator kommen automatisch aus der öffentlichen LexyCast-API v2. Für einen anderen als den Standard-Sender `#Nummer` anhängen (z. B. `…:4020#2`).
 - Unterstützt Seiten- und Hauptpanel-Layouts mit auswählbaren Themes.
 - Lädt Stationsdaten, aktuellen Titel, Hörerzahl, Playlist, Verlauf und kommende Künstler über die laut.fm API.
 - Nutzt einen lokalen Cache, um API-Anfragen zu reduzieren.
@@ -19,7 +20,7 @@ Englische Dokumentation: [README.md](README.md)
 ## Voraussetzungen
 
 - PHP-Fusion-Installation mit klassischem Infusion-System.
-- PHP mit ausgehendem HTTP/HTTPS-Zugriff auf `https://api.laut.fm`.
+- PHP mit ausgehendem HTTP/HTTPS-Zugriff auf `https://api.laut.fm` bzw. den LexyCast-Server (`allow_url_fopen`).
 - Beschreibbarer Ordner `infusions/cxm_radiostatus_panel/cache/` für generierte Cachedateien.
 - Aktiviertes JavaScript im Browser der Besucher für automatische Panel-Aktualisierung.
 - Securimage/Captcha-Unterstützung der PHP-Fusion-Installation für Wunschbox-Einsendungen von Gästen.
@@ -37,7 +38,8 @@ Englische Dokumentation: [README.md](README.md)
 6. Das Adminpanel **Radio Status** öffnen.
 7. Mindestens einen Stream anlegen:
    - Anzeigename
-   - laut.fm Stations-Slug
+   - Quelle (laut.fm oder LexyCast)
+   - laut.fm Stations-Slug bzw. LexyCast-Adresse mit Port
    - Panel-Position
    - Zugriffslevel
    - Optionale Stream-URL-Überschreibung
@@ -51,7 +53,7 @@ Die Einstellungen im Adminbereich umfassen:
 - Cache-Laufzeit in Sekunden.
 - Reload-Intervall für Seitenpanels in Millisekunden.
 - Reload-Intervall für Hauptpanels in Millisekunden.
-- API-Basis-URL, Standard: `https://api.laut.fm`.
+- laut.fm API-Basis-URL, Standard: `https://api.laut.fm`.
 - Datumsformat für die Wunschbox.
 
 ## Updates
@@ -60,7 +62,7 @@ Die Einstellungen im Adminbereich umfassen:
 2. Dateien in `infusions/cxm_radiostatus_panel/` ersetzen.
 3. Generierte Cachedateien nicht in Release-Pakete übernehmen.
 4. Schreibrechte des Cache-Ordners erneut prüfen.
-5. Adminbereich öffnen und Stream-Einstellungen kontrollieren.
+5. Adminbereich öffnen und Stream-Einstellungen kontrollieren. Beim ersten Aufruf ergänzt er bei Updates von 1.1 die Spalte `rs_source` (bestehende Streams bleiben laut.fm).
 
 ## Deinstallation
 

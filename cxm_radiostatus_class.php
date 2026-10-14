@@ -90,14 +90,14 @@ class LautFmAPI {
         return false;
     }
 
-    private function sanitizeForCache($str) {
+    protected function sanitizeForCache($str) {
         $str = (string)$str;
         $str = str_replace("\\", "\\\\", $str);
         $str = str_replace("'", "\\'", $str);
         return $str;
     }
 
-    private function toPublicPath($path) {
+    protected function toPublicPath($path) {
         global $settings;
 
         $path = (string)$path;
@@ -117,13 +117,13 @@ class LautFmAPI {
         return $path;
     }
 
-    private function getDefaultDisplayImage() {
+    protected function getDefaultDisplayImage() {
         return $this->toPublicPath(
             (defined('CXM_RADIOSTATUS') ? CXM_RADIOSTATUS : INFUSIONS.'cxm_radiostatus_panel/').'images/autodj.gif'
         );
     }
 
-    private function loadExistingCache($rs_id, $cache_id) {
+    protected function loadExistingCache($rs_id, $cache_id) {
         $cache = array();
         $cache_file = (defined('CXM_RADIOSTATUS') ? CXM_RADIOSTATUS : INFUSIONS.'cxm_radiostatus_panel/')
             .'cache/stream_'.(int)$rs_id.'_'.preg_replace('/[^a-f0-9]/i', '', (string)$cache_id).'.php';
@@ -148,7 +148,7 @@ class LautFmAPI {
         return '';
     }
 
-    private function resolveModerator($moderator_name) {
+    protected function resolveModerator($moderator_name) {
         $fallback = array(
             'name'  => $moderator_name !== '' ? $moderator_name : 'AutoDJ',
             'image' => $this->getDefaultDisplayImage(),
@@ -513,5 +513,283 @@ class LautFmAPI {
         $res .= '?>';
         return $res;
     }
+}
+
+/**
+ * LexyCast (streaming.center-Panel), öffentliche API v2 ohne Login.
+ * rs_station enthält die Panel-Adresse mit Port, z.B. https://c02.lexycast.de:4020
+ * Optional mit Server-Nummer: https://c02.lexycast.de:4020#2 (sonst der Standard-Server des Panels).
+ */
+class LexyCastAPI extends LautFmAPI {
+    const HISTORY_LIMIT = 11;
+
+    private $panel_url;
+    private $server_id;
+
+    public function __construct($station) {
+        list($this->panel_url, $this->server_id) = self::parseStation($station);
+    }
+
+    /**
+     * Panel-Adresse normalisieren: ohne "/" am Ende, ohne "/api/v2", Schema https wenn keins angegeben
+     * @return array array(panel_url, server_id) - server_id 0 = Standard-Server
+     */
+    public static function parseStation($value) {
+        $value = trim((string)$value);
+        $server_id = 0;
+        if (preg_match('/#(\d+)$/', $value, $m)) {
+            $server_id = (int)$m[1];
+            $value = substr($value, 0, -strlen($m[0]));
+        }
+        $value = rtrim($value, '/');
+        $value = preg_replace('#/api(/v\d+)?$#i', '', $value);
+        if ($value !== '' && !preg_match('#^https?://#i', $value)) {
+            $value = 'https://'.$value;
+        }
+        $parts = @parse_url($value);
+        if (!is_array($parts) || empty($parts['host'])) {
+            return array('', 0);
+        }
+        return array($value, $server_id);
+    }
+
+    /**
+     * Wert für rs_station beim Speichern im Admin
+     */
+    public static function normalizeStation($value) {
+        list($url, $server_id) = self::parseStation($value);
+        return $url !== '' ? $url.($server_id > 0 ? '#'.$server_id : '') : '';
+    }
+
+    private function lcRequest($path, $query = array()) {
+        $url = $this->panel_url.'/api/v2/'.$path.(!empty($query) ? '?'.http_build_query($query) : '');
+        $ctx = stream_context_create(array(
+            'http' => array(
+                'timeout'       => 5,
+                'ignore_errors' => true,
+                'user_agent'    => 'cxm_radiostatus_panel/1.0',
+                'header'        => "Accept: application/json\r\n",
+            )
+        ));
+        $raw = @file_get_contents($url, false, $ctx);
+        $headers = function_exists('http_get_last_response_headers')
+            ? http_get_last_response_headers()
+            : (isset($http_response_header) ? $http_response_header : array());
+        $code = (is_array($headers) && isset($headers[0]) && preg_match('#\s(\d{3})\s?#', $headers[0], $m)) ? (int)$m[1] : 0;
+        if ($raw === false || $code < 200 || $code >= 300) {
+            $this->error = 'HTTP-Fehler '.$code.' beim Abruf von '.$path;
+            return false;
+        }
+        $data = json_decode($raw, true);
+        if (!is_array($data)) {
+            $this->error = 'Ungültige JSON-Antwort von '.$path;
+            return false;
+        }
+        return $data;
+    }
+
+    private function findServerId($previous_cache) {
+        if ($this->server_id > 0) {
+            return $this->server_id;
+        }
+        if (!empty($previous_cache['lc_server']) && isset($previous_cache['lc_panel']) && $previous_cache['lc_panel'] === $this->panel_url) {
+            return (int)$previous_cache['lc_server'];
+        }
+        $servers = $this->lcRequest('servers/');
+        if (!is_array($servers)) {
+            return 0;
+        }
+        $first = 0;
+        foreach ($servers as $server) {
+            if (!is_array($server) || empty($server['id'])) {
+                continue;
+            }
+            if (!empty($server['default'])) {
+                return (int)$server['id'];
+            }
+            if ($first === 0) {
+                $first = (int)$server['id'];
+            }
+        }
+        return $first;
+    }
+
+    private static function text($item, $key) {
+        return (isset($item[$key]) && is_scalar($item[$key])) ? trim((string)$item[$key]) : '';
+    }
+
+    /**
+     * Moderator auf Sendung (nicht der AutoDJ mit cat "auto"), sonst ''
+     */
+    private static function liveDj($dj_name, $djs) {
+        $dj_name = trim((string)$dj_name);
+        $match = '';
+        foreach ((array)$djs as $dj) {
+            if (!is_array($dj) || (isset($dj['cat']) && $dj['cat'] === 'auto') || empty($dj['name'])) {
+                continue;
+            }
+            $name = trim((string)$dj['name']);
+            if (!empty($dj['on_air'])) {
+                return $dj;
+            }
+            if ($match === '' && $dj_name !== '' && $name === $dj_name) {
+                $match = $dj;
+            }
+        }
+        return $match;
+    }
+
+    private function renderCache($cache) {
+        return '<?php'."\n"
+            .'if (!defined(\'IN_FUSION\')) { die(\'Access Denied\'); }'."\n"
+            .'$cache = '.var_export($cache, true).';'."\n"
+            .'?>';
+    }
+
+    public function makeCache($rs_id, $cache_id, $rs_stream_url_override = '') {
+        $previous_cache = $this->loadExistingCache($rs_id, $cache_id);
+        $cache = array(
+            'status'        => 0,
+            'error'         => '',
+            'song'          => '',
+            'title'         => '',
+            'artist_name'   => '',
+            'artist_thumb'  => '',
+            'album'         => '',
+            'ends_at'       => 0,
+            'listner'       => 0,
+            'genre'         => '',
+            'is_live'       => 0,
+            'has_moderator' => 0,
+            'title_source'  => 'fallback',
+            'playlist'      => '',
+            'station_img'   => $this->getDefaultDisplayImage(),
+            'onair_name'    => 'AutoDJ',
+            'stream_url'    => '',
+            'history'       => array(),
+            'next_artists'  => array(),
+            'lc_panel'      => $this->panel_url,
+            'lc_server'     => 0,
+        );
+
+        if ($this->panel_url === '') {
+            $cache['error'] = 'Ungültige LexyCast-Adresse';
+            return $this->renderCache($cache);
+        }
+
+        $server = $this->findServerId($previous_cache);
+        $channels = $server > 0 ? $this->lcRequest('channels/', array('server' => $server)) : false;
+        if (!is_array($channels)) {
+            if ($cache['error'] === '') {
+                $cache['error'] = $this->error !== '' ? $this->error : 'Kein Server im LexyCast-Panel gefunden';
+            }
+            return $this->renderCache($cache);
+        }
+        $cache['lc_server'] = $server;
+
+        // Kanäle: Hörer zusammenzählen, Stream-Adresse des ersten laufenden Kanals (https bevorzugt)
+        $online = false;
+        $stream_url = '';
+        foreach ($channels as $channel) {
+            if (!is_array($channel) || (isset($channel['active']) && !$channel['active'])) {
+                continue;
+            }
+            $is_online = isset($channel['state']) && (int)$channel['state'] === 2;
+            if (!$is_online) {
+                continue;
+            }
+            $online = true;
+            $cache['listner'] += isset($channel['listeners_current']) ? (int)$channel['listeners_current'] : 0;
+            if ($stream_url === '') {
+                $stream_url = self::text($channel, 'secure_stream_url') !== ''
+                    ? self::text($channel, 'secure_stream_url')
+                    : self::text($channel, 'stream_url');
+            }
+        }
+        $cache['stream_url'] = $rs_stream_url_override !== '' ? $rs_stream_url_override : $stream_url;
+
+        if (!$online) {
+            $cache['error'] = 'Kein Kanal auf Sendung';
+            return $this->renderCache($cache);
+        }
+        $cache['status'] = 1;
+
+        // Titel und Verlauf (neuester zuerst)
+        $history = $this->lcRequest('history/', array('limit' => self::HISTORY_LIMIT, 'offset' => 0, 'server' => $server));
+        $items = (is_array($history) && isset($history['results']) && is_array($history['results'])) ? $history['results'] : array();
+        usort($items, function ($a, $b) {
+            return (isset($b['ts']) ? $b['ts'] : 0) - (isset($a['ts']) ? $a['ts'] : 0);
+        });
+        $current = isset($items[0]) && is_array($items[0]) ? $items[0] : null;
+        if ($current !== null) {
+            $cache['title'] = self::text($current, 'title');
+            $cache['artist_name'] = self::text($current, 'author');
+            $cache['album'] = self::text($current, 'album');
+            $cache['genre'] = self::text($current, 'genre');
+            $cache['playlist'] = self::text($current, 'playlist_title');
+            $cache['artist_thumb'] = self::text($current, 'img_medium_url') !== ''
+                ? self::text($current, 'img_medium_url')
+                : self::text($current, 'img_url');
+            if ($cache['artist_name'] !== '' && $cache['title'] !== '') {
+                $cache['song'] = $cache['artist_name'].' - '.$cache['title'];
+            } else {
+                $cache['song'] = $cache['title'] !== '' ? $cache['title'] : self::text($current, 'metadata');
+            }
+            if (!empty($current['ts']) && !empty($current['length'])) {
+                $cache['ends_at'] = (int)floor($current['ts'] / 1000) + (int)round($current['length'] / 1000);
+            }
+            $cache['title_source'] = 'api';
+        } elseif (!empty($previous_cache['song']) && isset($previous_cache['title_source']) && $previous_cache['title_source'] !== 'fallback') {
+            foreach (array('song', 'title', 'artist_name', 'artist_thumb', 'album', 'ends_at') as $key) {
+                if (isset($previous_cache[$key])) {
+                    $cache[$key] = $previous_cache[$key];
+                }
+            }
+            $cache['title_source'] = 'cache';
+        }
+        if ($cache['song'] === '') {
+            $cache['song'] = 'Keine aktuellen Titeldaten';
+        }
+
+        foreach (array_slice($items, 1, 10) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $cache['history'][] = array(
+                'title'      => self::text($item, 'title') !== '' ? self::text($item, 'title') : self::text($item, 'metadata'),
+                'artist'     => self::text($item, 'author'),
+                'started_at' => !empty($item['ts']) ? date('c', (int)floor($item['ts'] / 1000)) : '',
+            );
+        }
+
+        // Live-Moderator (nicht AutoDJ)
+        $djs = $this->lcRequest('djs/', array('server' => $server));
+        $dj = self::liveDj($current !== null ? self::text($current, 'dj_name') : '', is_array($djs) ? $djs : array());
+        if (is_array($dj)) {
+            $cache['is_live'] = 1;
+            $cache['has_moderator'] = 1;
+            $cache['onair_name'] = trim((string)$dj['name']);
+            $image = !empty($dj['image_medium']) ? (string)$dj['image_medium'] : (!empty($dj['image_thumbnail']) ? (string)$dj['image_thumbnail'] : '');
+            if ($image === '') {
+                $moderator = $this->resolveModerator($cache['onair_name']);
+                $image = $moderator['image'];
+            }
+            $cache['station_img'] = $image;
+        }
+
+        return $this->renderCache($cache);
+    }
+}
+
+/**
+ * API-Objekt passend zur Quelle des Streams (laut.fm oder LexyCast)
+ */
+function cxm_rs_create_api($stream) {
+    global $cxm_radiostatus_settings;
+
+    if (isset($stream['rs_source']) && $stream['rs_source'] === 'lexycast') {
+        return new LexyCastAPI($stream['rs_station']);
+    }
+    return new LautFmAPI($stream['rs_station'], $cxm_radiostatus_settings['api_base']);
 }
 ?>

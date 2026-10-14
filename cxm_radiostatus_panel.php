@@ -31,8 +31,11 @@ if (file_exists(CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php')) {
     require CXM_RADIOSTATUS.'locale/German/index.php';
 }
 
-function cxm_rs_panel_where($panel) {
-    return "rs_panel='".(int)$panel."'";
+// Das Panel kann mehrfach pro Seite eingebunden werden (z.B. links und rechts)
+if (!function_exists('cxm_rs_panel_where')) {
+    function cxm_rs_panel_where($panel) {
+        return "rs_panel='".(int)$panel."'";
+    }
 }
 
 // Panel-Position bestimmen

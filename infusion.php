@@ -28,7 +28,7 @@ if (file_exists(INFUSIONS.'cxm_radiostatus_panel/locale/'.LOCALESET.'index.php')
 
 $inf_title       = $locale['cxmrs_title'];
 $inf_description = $locale['cxmrs_desc'];
-$inf_version     = '1.1';
+$inf_version     = '1.2';
 $inf_developer   = 'Alexaxander Schilinski';
 $inf_email       = '';
 $inf_weburl      = 'https://schilinskialexander.com';
@@ -38,6 +38,7 @@ $inf_folder      = 'cxm_radiostatus_panel';
 $inf_newtable[1] = DB_CXM_RADIOSTATUS." (
 rs_id          SMALLINT(5) UNSIGNED NOT NULL AUTO_INCREMENT,
 rs_name        VARCHAR(50) NOT NULL DEFAULT 'Stream',
+rs_source      VARCHAR(10) NOT NULL DEFAULT 'lautfm',
 rs_station     VARCHAR(100) NOT NULL DEFAULT '',
 rs_panel       TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
 rs_order       SMALLINT(5) UNSIGNED NOT NULL DEFAULT '0',

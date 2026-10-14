@@ -1,12 +1,13 @@
 # CxM Radiostatus Panel
 
-PHP-Fusion infusion for displaying laut.fm radio stream status, player links, current metadata, history, upcoming artists, and a moderator-controlled wishbox.
+PHP-Fusion infusion for displaying laut.fm and LexyCast radio stream status, player links, current metadata, history, upcoming artists, and a moderator-controlled wishbox.
 
 German documentation: [README.de.md](README.de.md)
 
 ## Features
 
-- Displays one or more configured laut.fm stations in PHP-Fusion panels.
+- Displays one or more configured stations in PHP-Fusion panels, source selectable per stream: **laut.fm** or **LexyCast**.
+- LexyCast: just enter the panel address with port (e.g. `https://c02.lexycast.de:4020`). Station, channel, stream URL, current track with cover and album, history, listener count and live moderator are read from the public LexyCast API v2. For a station other than the default, append `#number` (e.g. `…:4020#2`).
 - Supports side and main panel layouts with selectable themes.
 - Fetches station data, current song, listener count, playlist, history, and upcoming artists from the laut.fm API.
 - Uses a local cache to reduce API requests.
@@ -19,7 +20,7 @@ German documentation: [README.de.md](README.de.md)
 ## Requirements
 
 - PHP-Fusion installation with the classic infusion system.
-- PHP with outbound HTTP/HTTPS access to `https://api.laut.fm`.
+- PHP with outbound HTTP/HTTPS access to `https://api.laut.fm` or your LexyCast server (`allow_url_fopen`).
 - Writable `infusions/cxm_radiostatus_panel/cache/` directory for generated cache files.
 - JavaScript enabled in the visitor browser for automatic panel updates.
 - Securimage/captcha support from the PHP-Fusion installation for guest wishbox submissions.
@@ -37,7 +38,8 @@ German documentation: [README.de.md](README.de.md)
 6. Open the **Radio Status** admin panel.
 7. Add at least one stream:
    - Display name
-   - laut.fm station slug
+   - Source (laut.fm or LexyCast)
+   - laut.fm station slug or LexyCast address with port
    - Panel position
    - Access level
    - Optional stream URL override
@@ -51,7 +53,7 @@ The admin settings include:
 - Cache lifetime in seconds.
 - Side panel reload interval in milliseconds.
 - Main panel reload interval in milliseconds.
-- API base URL, default: `https://api.laut.fm`.
+- laut.fm API base URL, default: `https://api.laut.fm`.
 - Wishbox date format.
 
 ## Updates
@@ -60,7 +62,7 @@ The admin settings include:
 2. Replace the files in `infusions/cxm_radiostatus_panel/`.
 3. Keep generated cache files out of release packages.
 4. Recheck cache directory write permissions.
-5. Open the admin area and verify stream settings.
+5. Open the admin area and verify stream settings. When updating from 1.1, the first visit adds the `rs_source` column (existing streams stay on laut.fm).
 
 ## Uninstall
 
