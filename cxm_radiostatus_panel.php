@@ -54,54 +54,49 @@ if ($panel == 1 || $panel == 4) {
 }
 
 // Streams für dieses Panel laden
-$result = dbquery("SELECT rs_id, rs_cache, rs_panel, rs_status_wb, rs_access_wb, rs_wb_popup FROM "
+$result = dbquery("SELECT * FROM "
     .DB_CXM_RADIOSTATUS." WHERE ".groupaccess("rs_access")
     ." AND ".cxm_rs_panel_where($panel)." AND rs_status='1' ORDER BY rs_order");
 
 if (dbrows($result)) {
-    add_to_head('<link rel="stylesheet" type="text/css" href="'.CXM_RADIOSTATUS.'css/cxm_radiostatus.css" />');
+    if (!defined('CXM_RADIOSTATUS_ASSETS')) {
+        define('CXM_RADIOSTATUS_ASSETS', true);
+        add_to_head('<link rel="stylesheet" type="text/css" href="'.CXM_RADIOSTATUS.'css/cxm_radiostatus.css" />');
+        add_to_head('<script type="text/javascript" src="'.CXM_RADIOSTATUS.'js/cxm_radiostatus.js"></script>');
+    }
 
     // Container für AJAX-Inhalte
-    echo '<div id="cxm_radiostatus_panel_'.(int)$panel.'"></div>';
+    echo '<div id="cxm_radiostatus_panel_'.(int)$panel.'" class="cxm-x-panel" aria-live="polite"></div>';
 
     // Wunschbox-Formulare (statisch im DOM)
     while ($data = dbarray($result)) {
         $rs_id = (int)$data['rs_id'];
         if ($data['rs_status_wb'] && checkgroup($data['rs_access_wb']) && empty($data['rs_wb_popup'])) {
+            $skin = isset($data['rs_skin']) ? preg_replace('/[^a-z]/', '', $data['rs_skin']) : 'modern';
             echo '<div id="cxm_rs_wb_'.$rs_id.'" class="cxm-rs-hidden">';
-            echo '<form id="cxm_wb_form_'.$rs_id.'" onsubmit="return check_wb_'.$rs_id.'();">';
-            echo '<table cellspacing="0" cellpadding="2" width="100%" class="tbl-border">';
-            echo '<tr><td class="tbl2" colspan="2"><strong>'.$locale['cxmrswb_title'].'</strong></td></tr>';
+            echo '<form id="cxm_wb_form_'.$rs_id.'" class="cxm-x-wbform cxm-skin-'.($skin !== '' ? $skin : 'modern').'" onsubmit="return check_wb_'.$rs_id.'();">';
+            echo '<div class="cxm-x-wbform-title">'.$locale['cxmrswb_title'].'</div>';
 
-            // Name
-            echo '<tr><td class="tbl2">'.$locale['cxmrswb_name'].' <span class="cxm-rs-required">*</span></td>'
-                .'<td class="tbl2"><input type="text" id="cxm_wb_name_'.$rs_id.'" name="name"'
+            echo '<label for="cxm_wb_name_'.$rs_id.'">'.$locale['cxmrswb_name'].' <span class="cxm-rs-required">*</span></label>'
+                .'<input type="text" id="cxm_wb_name_'.$rs_id.'" name="name" maxlength="100"'
                 .(iMEMBER ? ' value="'.htmlspecialchars($userdata['user_name']).'"' : '')
-                .' class="textbox cxm-rs-form-wide" /></td></tr>';
+                .' class="textbox" />';
 
-            // Wunsch
-            echo '<tr><td class="tbl2">'.$locale['cxmrswb_wunsch'].'</td>'
-                .'<td class="tbl2"><input type="text" id="cxm_wb_wunsch_'.$rs_id.'" name="wunsch"'
-                .' class="textbox cxm-rs-form-wide" /></td></tr>';
+            echo '<label for="cxm_wb_wunsch_'.$rs_id.'">'.$locale['cxmrswb_wunsch'].'</label>'
+                .'<input type="text" id="cxm_wb_wunsch_'.$rs_id.'" name="wunsch" maxlength="255" class="textbox" />';
 
-            // Nachricht
-            echo '<tr><td class="tbl2">'.$locale['cxmrswb_nachricht'].'</td>'
-                .'<td class="tbl2"><textarea id="cxm_wb_nachricht_'.$rs_id.'" name="nachricht"'
-                .' class="textbox cxm-rs-form-wide" rows="3"></textarea></td></tr>';
+            echo '<label for="cxm_wb_nachricht_'.$rs_id.'">'.$locale['cxmrswb_nachricht'].'</label>'
+                .'<textarea id="cxm_wb_nachricht_'.$rs_id.'" name="nachricht" class="textbox" rows="3"></textarea>';
 
             // CAPTCHA für Gäste
             if (!iMEMBER) {
-                echo '<tr><td class="tbl2">'.$locale['cxmrswb_captcha'].' <span class="cxm-rs-required">*</span></td>'
-                    .'<td class="tbl2">'.cxm_rs_captcha_html('cxm_wb_code_'.$rs_id).'</td></tr>';
+                echo '<div class="cxm-x-wbform-captcha"><span>'.$locale['cxmrswb_captcha'].' <span class="cxm-rs-required">*</span></span>'
+                    .cxm_rs_captcha_html('cxm_wb_code_'.$rs_id).'</div>';
             }
 
-            // Absenden
-            echo '<tr><td class="tbl2" colspan="2" align="right">'
-                .'<input type="submit" name="wb_save" value="'.$locale['cxmrswb_send'].'" class="button" />'
-                .'</td></tr>';
-            echo '</table>';
+            echo '<button type="submit" name="wb_save" class="cxm-x-wish">'.$locale['cxmrswb_send'].'</button>';
             echo '</form>';
-            echo '<div id="cxm_rs_wb_check_'.$rs_id.'" class="cxm-rs-hidden"></div>';
+            echo '<div id="cxm_rs_wb_check_'.$rs_id.'" class="cxm-rs-hidden cxm-x-wbform-result" role="status"></div>';
             echo '</div>';
         }
     }

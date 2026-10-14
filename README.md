@@ -56,13 +56,23 @@ The admin settings include:
 - laut.fm API base URL, default: `https://api.laut.fm`.
 - Wishbox date format.
 
+## Designs
+
+Each stream gets a layout and a style under **Design** in the admin area, picked from cards with a live preview (sample data, switchable between side and main panel). All new layouts work left/right and in the centre and adapt to the panel width.
+
+- **Layouts:** Large cover, Compact, Studio (host and on-air sign up front), Host (large host picture with name), Show (on-air bar with host), Host & cover (both pictures side by side), With history (recently played, plus upcoming artists on laut.fm). The previous banner design remains available as **Classic**; the old design with audio player was removed and streams using it switch to "Large cover".
+- **Styles:** Modern, Hit parade (ultramarine with lit title plates), Jukebox (oxblood, chrome, typed title strips), Mixtape (cassette label with ballpoint title), Vinyl (the cover spins like a record), Car radio (amber display), Beach (titles on a postcard), Parlour (wood and brass plate). The style also applies to the popup player, iframe embed and request box; **Player style** can give the player its own style.
+- **Request box admin:** its own light surface with a tab per stream, new requests highlighted.
+- **In the panel:** play/pause right in the panel (keeps playing across automatic refreshes), progress bar with the real remaining time, scrolling text only for long titles, animation on track change.
+- **Fonts:** bundled locally in `fonts/` (SIL Open Font License); no external services are loaded.
+
 ## Updates
 
 1. Back up your database and existing infusion files.
 2. Replace the files in `infusions/cxm_radiostatus_panel/`.
 3. Keep generated cache files out of release packages.
 4. Recheck cache directory write permissions.
-5. Open the admin area and verify stream settings. When updating from 1.1, the first visit adds the `rs_source` column (existing streams stay on laut.fm).
+5. Open the admin area and verify stream settings. The first visit adds missing columns (`rs_source`, `rs_skin`, `rs_player_skin`). Existing streams stay on laut.fm.
 
 ## Uninstall
 

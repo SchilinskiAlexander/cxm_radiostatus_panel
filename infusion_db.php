@@ -58,6 +58,16 @@ if (!function_exists('cxm_rs_ensure_schema')) {
         if ($result && !dbrows($result)) {
             dbquery("ALTER TABLE ".DB_CXM_RADIOSTATUS." ADD rs_source VARCHAR(10) NOT NULL DEFAULT 'lautfm' AFTER rs_name");
         }
+        // Stil der Designs (bestehende Streams behalten ihr klassisches Layout)
+        $result = dbquery("SHOW COLUMNS FROM ".DB_CXM_RADIOSTATUS." LIKE 'rs_skin'");
+        if ($result && !dbrows($result)) {
+            dbquery("ALTER TABLE ".DB_CXM_RADIOSTATUS." ADD rs_skin VARCHAR(20) NOT NULL DEFAULT 'modern' AFTER rs_theme");
+        }
+        // Eigener Stil für Popup-Player, Embed und Wunschbox-Popup ('' = wie im Panel)
+        $result = dbquery("SHOW COLUMNS FROM ".DB_CXM_RADIOSTATUS." LIKE 'rs_player_skin'");
+        if ($result && !dbrows($result)) {
+            dbquery("ALTER TABLE ".DB_CXM_RADIOSTATUS." ADD rs_player_skin VARCHAR(20) NOT NULL DEFAULT '' AFTER rs_skin");
+        }
     }
 }
 

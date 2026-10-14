@@ -28,7 +28,7 @@ if (file_exists(INFUSIONS.'cxm_radiostatus_panel/locale/'.LOCALESET.'index.php')
 
 $inf_title       = $locale['cxmrs_title'];
 $inf_description = $locale['cxmrs_desc'];
-$inf_version     = '1.2';
+$inf_version     = '2.0';
 $inf_developer   = 'Alexaxander Schilinski';
 $inf_email       = '';
 $inf_weburl      = 'https://schilinskialexander.com';
@@ -44,7 +44,9 @@ rs_panel       TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
 rs_order       SMALLINT(5) UNSIGNED NOT NULL DEFAULT '0',
 rs_status      TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
 rs_cache       VARCHAR(32) NOT NULL DEFAULT '',
-rs_theme       TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+rs_theme       TINYINT(3) UNSIGNED NOT NULL DEFAULT '10',
+rs_skin        VARCHAR(20) NOT NULL DEFAULT 'modern',
+rs_player_skin VARCHAR(20) NOT NULL DEFAULT '',
 rs_access      TINYINT(3) UNSIGNED NOT NULL DEFAULT '0',
 rs_show_image  TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
 rs_show_next   TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',

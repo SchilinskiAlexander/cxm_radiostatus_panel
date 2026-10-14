@@ -46,7 +46,7 @@ function cxm_rs_load_cache($stream) {
 
     $cache = array();
     $cache_file = CXM_RADIOSTATUS.'cache/stream_'.$stream['rs_id'].'_'.$stream['rs_cache'].'.php';
-    if (!file_exists($cache_file) || filemtime($cache_file) <= (time() - (int)$cxm_radiostatus_settings['reload_cache'])) {
+    if (!file_exists($cache_file) || @filemtime($cache_file) <= (time() - (int)$cxm_radiostatus_settings['reload_cache'])) {
         require_once CXM_RADIOSTATUS.'cxm_radiostatus_class.php';
         $api = cxm_rs_create_api($stream);
         $res = $api->makeCache($stream['rs_id'], $stream['rs_cache'], $stream['rs_stream_url']);
@@ -92,95 +92,7 @@ function cxm_rs_player($info) {
 // ── ?panel=X  Panel-HTML ausgeben ──────────────────────────────────────────
 if (isset($_GET['panel']) && isnum($_GET['panel'])) {
 
-    function cxm_rs_theme($cache, $panel_typ) {
-        global $locale, $cxm_radiostatus_settings;
-        $name = ($panel_typ == 1 || $panel_typ == 4) ? 'side_' : 'main_';
-        ob_start();
-        if ($cache['status']) {
-            $file = CXM_RADIOSTATUS.'theme/'.$name.$cache['rs_theme'].'.php';
-            if (file_exists($file)) {
-                require $file;
-            }
-        } else {
-            $file = CXM_RADIOSTATUS.'theme/offline_default.php';
-            if (file_exists($file)) {
-                require $file;
-            }
-        }
-        $theme = ob_get_contents();
-        ob_end_clean();
-
-        // next_artists_block aufbauen
-        $next_block = '';
-        if ($cache['status'] && !empty($cache['show_next']) && !empty($cache['next_artists'])) {
-            $next_block = '<div class="cxm-rs-next"><strong>'.$locale['cxmrs_next'].'</strong><ul>';
-            foreach ($cache['next_artists'] as $na) {
-                $next_block .= '<li>';
-                if (!empty($na['thumb'])) {
-                    $next_block .= '<img src="'.htmlspecialchars($na['thumb']).'" alt="" width="30" height="30" /> ';
-                }
-                $next_block .= htmlspecialchars($na['name']).'</li>';
-            }
-            $next_block .= '</ul></div>';
-        }
-
-        // history_block aufbauen
-        $history_block = '';
-        if ($cache['status'] && !empty($cache['history'])) {
-            $history_block = '<div class="cxm-rs-history"><strong>'.$locale['cxmrs_history'].'</strong><table>';
-            foreach ($cache['history'] as $h) {
-                $history_block .= '<tr><td>'.htmlspecialchars($h['artist'].' - '.$h['title']).'</td></tr>';
-            }
-            $history_block .= '</table></div>';
-        }
-
-        // live_badge
-        $live_badge = ($cache['status'] && !empty($cache['is_live']))
-            ? '<span class="cxm-rs-live">'.$locale['cxmrs_live'].'</span>'
-            : '';
-
-        // Wunschbox-Button
-        $wb_button = '';
-        if (!empty($cache['wb_button_html'])) {
-            $wb_button = $cache['wb_button_html'];
-        }
-
-        $search = array(
-            '###rs_id###', '###rs_name###', '###song###', '###title###', '###artist###',
-            '###artist_thumb###', '###album###', '###listner###', '###genre###',
-            '###playlist###', '###is_live###', '###live_badge###', '###station_img###',
-            '###onair_name###',
-            '###stream_url###', '###next_artists_block###', '###history_block###',
-            '###player###', '###wb_button###', '###wb_captcha###', '###wb_username###',
-            '###ends_at###', '###error###',
-        );
-        $replace = array(
-            $cache['rs_id'],
-            htmlspecialchars($cache['rs_name']),
-            htmlspecialchars($cache['song']),
-            htmlspecialchars($cache['title']),
-            htmlspecialchars($cache['artist_name']),
-            htmlspecialchars($cache['artist_thumb']),
-            htmlspecialchars($cache['album']),
-            (int)$cache['listner'],
-            htmlspecialchars($cache['genre']),
-            htmlspecialchars($cache['playlist']),
-            (int)$cache['is_live'],
-            $live_badge,
-            htmlspecialchars($cache['station_img']),
-            htmlspecialchars($cache['onair_name']),
-            htmlspecialchars($cache['stream_url']),
-            $next_block,
-            $history_block,
-            $cache['player_html'],
-            $wb_button,
-            '',   // wb_captcha wird im Panel gesetzt
-            htmlspecialchars($cache['wb_username']),
-            (int)$cache['ends_at'],
-            (iSUPERADMIN ? htmlspecialchars($cache['error']) : ''),
-        );
-        return str_replace($search, $replace, $theme);
-    }
+    require_once CXM_RADIOSTATUS.'cxm_radiostatus_themes.php';
 
     $panel   = intval($_GET['panel']);
     $result  = dbquery("SELECT * FROM ".DB_CXM_RADIOSTATUS." WHERE ".groupaccess("rs_access")." AND ".cxm_rs_panel_where($panel)." AND rs_status='1' ORDER BY rs_order");
@@ -194,43 +106,46 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
             $cache['rs_id']      = $data['rs_id'];
             $cache['rs_name']    = $data['rs_name'];
             $cache['rs_theme']   = $data['rs_theme'];
+            $cache['rs_skin']    = isset($data['rs_skin']) ? $data['rs_skin'] : 'modern';
             $cache['rs_panel']   = $data['rs_panel'];
             $cache['show_image'] = $data['rs_show_image'];
             $cache['show_next']  = $data['rs_show_next'];
             $cache['wb_username']= iMEMBER ? $userdata['user_name'] : '';
             $cache['player_html']= cxm_rs_player($data);
+            $cache['player_base']= cxm_rs_web_path().'cxm_radiostatus_player.php?id='.(int)$data['rs_id'];
 
             // Felder initialisieren wenn offline-Cache leer
-            foreach (array('status','song','title','artist_name','artist_thumb','album','ends_at',
+            foreach (array('status','song','title','artist_name','artist_thumb','album','ends_at','starts_at',
                            'listner','genre','is_live','has_moderator','playlist','station_img','onair_name','stream_url',
                            'history','next_artists','error') as $f) {
                 if (!isset($cache[$f])) {
-                    $cache[$f] = is_array($cache) ? '' : '';
+                    $cache[$f] = '';
                 }
             }
             if (empty($cache['onair_name'])) {
                 $cache['onair_name'] = 'AutoDJ';
             }
-            if (empty($cache['station_img']) || empty($cache['onair_name']) || $cache['onair_name'] === 'AutoDJ') {
+            if (empty($cache['station_img']) || $cache['onair_name'] === 'AutoDJ') {
                 $cache['station_img'] = CXM_RADIOSTATUS.'images/autodj.gif';
             }
-            if (!isset($cache['history']))      { $cache['history'] = array(); }
-            if (!isset($cache['next_artists'])) { $cache['next_artists'] = array(); }
+            if (!is_array($cache['history']))      { $cache['history'] = array(); }
+            if (!is_array($cache['next_artists'])) { $cache['next_artists'] = array(); }
 
+            $classic = (cxm_rs_layout_id($data['rs_theme']) === 3);
+            $cache['wb_button_html'] = '';
             if ($data['rs_status_wb'] && checkgroup($data['rs_access_wb']) && cxm_rs_has_live_moderator($cache)) {
                 if (!empty($data['rs_wb_popup'])) {
                     $wb_url = cxm_rs_web_path().'cxm_radiostatus_player.php?id='.(int)$data['rs_id'].'&typ=wb';
-                    $cache['wb_button_html'] = '<button type="button" onclick="window.open(\''.$wb_url.'\',\'cxmrs_wb\',\'height=430,width=560,top=\' + Math.round((screen.height - 430) / 2) + \',left=\' + Math.round((screen.width - 560) / 2) + \',resizable=yes\'); return false;" class="button cxm-rs-wb-btn">'
-                        .$locale['cxmrswb_open'].'</button>';
+                    $onclick = 'window.open(\''.$wb_url.'\',\'cxmrs_wb\',\'height=520,width=480,top=\' + Math.round((screen.height - 520) / 2) + \',left=\' + Math.round((screen.width - 480) / 2) + \',resizable=yes\'); return false;';
                 } else {
-                    $cache['wb_button_html'] = '<button type="button" onclick="updateWB_'.$data['rs_id'].'()" class="button cxm-rs-wb-btn">'
-                        .$locale['cxmrswb_open'].'</button>';
+                    $onclick = 'updateWB_'.(int)$data['rs_id'].'()';
                 }
-            } else {
-                $cache['wb_button_html'] = '';
+                $cache['wb_button_html'] = $classic
+                    ? '<button type="button" onclick="'.$onclick.'" class="button cxm-rs-wb-btn">'.$locale['cxmrswb_open'].'</button>'
+                    : '<button type="button" onclick="'.$onclick.'" class="cxm-x-wish">'.cxm_rs_icon('wish').'<span>'.$locale['cxmrswb_open'].'</span></button>';
             }
 
-            echo cxm_rs_theme($cache, $panel);
+            echo cxm_rs_render($cache, $panel);
         }
     } else {
         echo '<div class="cxm-rs-empty">'.$locale['cxmrs_no_stream'].'</div>';
@@ -247,6 +162,7 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
                 ? (int)$cxm_radiostatus_settings['reload_side']
                 : (int)$cxm_radiostatus_settings['reload_main'];
 
+    // Play, Fortschritt und Lauftext stecken in js/cxm_radiostatus.js
     echo 'var cxmRsTimer_'.$panel.'=null;';
     echo 'var cxmRsBusy_'.$panel.'=false;';
     echo 'var cxmRsLastHtml_'.$panel.'="";';
@@ -267,7 +183,7 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
     echo 'if(cxmRsLastHtml_'.$panel.'===""||nextHtml!==cxmRsLastHtml_'.$panel.'){';
     echo 'var currentAudio=container.find("audio").get(0);';
     echo 'var audioIsPlaying=currentAudio&&!currentAudio.paused&&!currentAudio.ended;';
-    echo 'if(!audioIsPlaying){container.html(html);cxmRsLastHtml_'.$panel.'=nextHtml;cxmRsUpdateProgress();}';
+    echo 'if(!audioIsPlaying){if(window.cxmRs){cxmRs.render(container.get(0),html);}else{container.html(html);}cxmRsLastHtml_'.$panel.'=nextHtml;}';
     echo '}';
     echo '},';
     echo 'complete:function(){cxmRsBusy_'.$panel.'=false;cxmRsSchedule_'.$panel.'('.$reload.');}';
@@ -292,20 +208,6 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
                 .'return false;}';
         }
     }
-
-    // Fortschrittsbalken-Aktualisierung
-    echo 'function cxmRsUpdateProgress(){'
-        .'$(".cxm-rs-progress-bar").each(function(){'
-        .'var ends=parseInt($(this).data("ends"));'
-        .'if(ends>0){'
-        .'var now=Math.floor(Date.now()/1000);'
-        .'var diff=ends-now;'
-        .'if(diff>0&&diff<600){'
-        .'var pct=Math.max(0,Math.min(100,Math.round((1-diff/600)*100)));'
-        .'$(this).css("width",pct+"%");'
-        .'}}'
-        .'});}';
-    echo 'setInterval(cxmRsUpdateProgress,1000);';
 
 // ── POST ?wb=X  Wunschbox-Eintrag speichern ───────────────────────────────
 } elseif (isset($_POST['wb']) && isnum($_POST['wb'])) {
@@ -392,46 +294,45 @@ if (isset($_GET['panel']) && isnum($_GET['panel'])) {
             ." WHERE wb_id='".intval($_POST['uid'])."' AND wb_stream='".$wb_id."'");
     }
 
+    require_once CXM_RADIOSTATUS.'cxm_radiostatus_themes.php';
     $unread = dbcount("(wb_id)", DB_CXM_RADIOSTATUS_WUNSCHBOX, "wb_stream='".$wb_id."' AND wb_status='0'");
+    $confirm = htmlspecialchars(addslashes($locale['cxmrsa_confirm_del']), ENT_QUOTES);
 
-    echo '<div class="cxm-rs-wb-admin-head">'
-        .'<strong>'.htmlspecialchars($stream['rs_name']).'</strong>'
-        .($unread > 0 ? ' <span>('.$unread.' '.$locale['cxmrsa_new_entries'].')</span>' : '')
-        .'</div>';
-    echo '<div class="cxm-rs-wb-admin-actions">'
-        .'<button type="button" class="button" onclick="if (typeof cxmRsWbBulk === \'function\') { cxmRsWbBulk(\'read_all\'); }">'.$locale['cxmrsa_wb_read_all'].'</button> '
-        .'<button type="button" class="button" onclick="if (!confirm(\''.$locale['cxmrsa_confirm_del'].'\')) { return false; } if (typeof cxmRsWbBulk === \'function\') { cxmRsWbBulk(\'del_all\'); }">'.$locale['cxmrsa_wb_del_all'].'</button>'
-        .'</div>';
+    echo '<div class="cxm-a-cardhead">'
+        .'<h2>'.htmlspecialchars($stream['rs_name'])
+        .($unread > 0 ? ' <span class="cxm-a-count">'.$unread.' '.$locale['cxmrsa_new_entries'].'</span>' : '').'</h2>'
+        .'<div class="cxm-a-inline">'
+        .'<button type="button" class="cxm-a-btn" onclick="if (typeof cxmRsWbBulk === \'function\') { cxmRsWbBulk(\'read_all\'); }">'.$locale['cxmrsa_wb_read_all'].'</button>'
+        .'<button type="button" class="cxm-a-btn cxm-a-btn-quiet" onclick="if (!confirm(\''.$confirm.'\')) { return false; } if (typeof cxmRsWbBulk === \'function\') { cxmRsWbBulk(\'del_all\'); }">'.cxm_rs_icon('trash').'<span>'.$locale['cxmrsa_wb_del_all'].'</span></button>'
+        .'</div></div>';
 
     $result = dbquery("SELECT * FROM ".DB_CXM_RADIOSTATUS_WUNSCHBOX." WHERE wb_stream='".$wb_id."' ORDER BY wb_time DESC");
     if (dbrows($result)) {
-        echo '<table cellpadding="2" cellspacing="1" width="100%" class="tbl-border">
-        <tr>
-            <td class="tbl2"><strong>'.$locale['cxmrsa_wb_time_col'].'</strong></td>
-            <td class="tbl2"><strong>'.$locale['cxmrsa_wb_name_col'].'</strong></td>
-            <td class="tbl2"><strong>'.$locale['cxmrsa_wb_wish_col'].'</strong></td>
-            <td class="tbl2"><strong>'.$locale['cxmrsa_wb_status_col'].'</strong></td>
-            <td class="tbl2"><strong>'.$locale['cxmrsa_wb_action_col'].'</strong></td>
-        </tr>';
+        echo '<ul class="cxm-a-wishes">';
         while ($row = dbarray($result)) {
-            $name_display = htmlspecialchars($row['wb_user_name']);
-            echo '<tr>
-                <td class="tbl1">'.showdate($cxm_radiostatus_settings['wb_time'], $row['wb_time']).'</td>
-                <td class="tbl1">'.$name_display.'</td>
-                <td class="tbl1">'.htmlspecialchars($row['wb_wunsch']).'<br />'.htmlspecialchars($row['wb_nachricht']).'</td>
-                <td class="tbl1">'.($row['wb_status'] ? $locale['cxmrsa_wb_read'] : $locale['cxmrsa_wb_unread']).'</td>
-                <td class="tbl1">
-                    <button type="button" class="button" onclick="if (typeof cxmRsWbStatus === \'function\') { cxmRsWbStatus('.$row['wb_id'].', '.($row['wb_status'] ? 0 : 1).'); }">'
-                    .($row['wb_status'] ? $locale['cxmrsa_wb_unread'] : $locale['cxmrsa_wb_read']).'</button>
-                    &nbsp;
-                    <button type="button" class="button" onclick="if (!confirm(\''.$locale['cxmrsa_confirm_del'].'\')) { return false; } if (typeof cxmRsWbDelete === \'function\') { cxmRsWbDelete('.$row['wb_id'].'); }">'.$locale['cxmrsa_wb_del'].'</button>
-                </td>
-            </tr>';
+            $is_new = !$row['wb_status'];
+            echo '<li class="cxm-a-wish'.($is_new ? ' is-new' : '').'">'
+                .'<div class="cxm-a-wish-meta">'
+                .'<span class="cxm-a-wish-name">'.htmlspecialchars($row['wb_user_name']).'</span>'
+                .'<time>'.showdate($cxm_radiostatus_settings['wb_time'], $row['wb_time']).'</time>'
+                .($is_new ? '<span class="cxm-a-tag is-lc">'.$locale['cxmrsa_wb_new'].'</span>' : '')
+                .'</div>'
+                .'<div class="cxm-a-wish-body">'
+                .($row['wb_wunsch'] !== '' ? '<div class="cxm-a-wish-song">'.cxm_rs_icon('note').'<span>'.htmlspecialchars($row['wb_wunsch']).'</span></div>' : '')
+                .($row['wb_nachricht'] !== '' ? '<p>'.nl2br(htmlspecialchars($row['wb_nachricht'])).'</p>' : '')
+                .'</div>'
+                .'<div class="cxm-a-actions">'
+                .'<button type="button" class="cxm-a-btn" onclick="if (typeof cxmRsWbStatus === \'function\') { cxmRsWbStatus('.(int)$row['wb_id'].', '.($row['wb_status'] ? 0 : 1).'); }">'
+                .($row['wb_status'] ? $locale['cxmrsa_wb_unread'] : $locale['cxmrsa_wb_read']).'</button>'
+                .'<button type="button" class="cxm-a-icon-btn is-danger" title="'.$locale['cxmrsa_wb_del'].'" aria-label="'.$locale['cxmrsa_wb_del'].'" onclick="if (!confirm(\''.$confirm.'\')) { return false; } if (typeof cxmRsWbDelete === \'function\') { cxmRsWbDelete('.(int)$row['wb_id'].'); }">'.cxm_rs_icon('trash').'</button>'
+                .'</div>'
+                .'</li>';
         }
-        echo '</table>';
+        echo '</ul>';
     } else {
-        echo '<div class="tbl2">'.$locale['cxmrsa_wb_empty'].'</div>';
+        echo '<div class="cxm-a-empty"><p>'.$locale['cxmrsa_wb_empty'].'</p></div>';
     }
+
 
 } else {
     echo $locale['cxmrs_no_stream'];

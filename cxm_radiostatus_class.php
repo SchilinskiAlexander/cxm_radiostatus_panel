@@ -186,6 +186,7 @@ class LautFmAPI {
             'album' => '',
             'genre' => '',
             'ends_at' => 0,
+            'starts_at' => 0,
         );
 
         if (!is_array($current_song)) {
@@ -214,6 +215,13 @@ class LautFmAPI {
 
         if (!empty($current_song['genre'])) {
             $result['genre'] = $this->normalizeSongValue($current_song['genre']);
+        }
+
+        if (!empty($current_song['started_at'])) {
+            $starts_at = strtotime($current_song['started_at']);
+            if ($starts_at !== false) {
+                $result['starts_at'] = (int)$starts_at;
+            }
         }
 
         if (!empty($current_song['ends_at'])) {
@@ -336,6 +344,7 @@ class LautFmAPI {
             $res .= '$cache[\'artist_thumb\'] = \'\';'."\n";
             $res .= '$cache[\'album\'] = \'\';'."\n";
             $res .= '$cache[\'ends_at\'] = 0;'."\n";
+            $res .= '$cache[\'starts_at\'] = 0;'."\n";
             $res .= '$cache[\'listner\'] = 0;'."\n";
             $res .= '$cache[\'genre\'] = \'\';'."\n";
             $res .= '$cache[\'is_live\'] = 0;'."\n";
@@ -358,6 +367,7 @@ class LautFmAPI {
         $genre = '';
         $song = '';
         $ends_at = 0;
+        $starts_at = 0;
         $title_source = 'fallback';
 
         // Listener-Anzahl (eigener Request)
@@ -397,6 +407,7 @@ class LautFmAPI {
             if ($api_song['ends_at'] > 0) {
                 $ends_at = $api_song['ends_at'];
             }
+            $starts_at = $api_song['starts_at'];
             $title_source = 'api';
         } else {
             $stream_title = $stream_url !== '' ? $this->getStreamTitle($stream_url) : '';
@@ -422,6 +433,7 @@ class LautFmAPI {
                 $artist_thumb = isset($previous_cache['artist_thumb']) ? (string)$previous_cache['artist_thumb'] : '';
                 $album = isset($previous_cache['album']) ? (string)$previous_cache['album'] : '';
                 $ends_at = isset($previous_cache['ends_at']) ? (int)$previous_cache['ends_at'] : 0;
+                $starts_at = isset($previous_cache['starts_at']) ? (int)$previous_cache['starts_at'] : 0;
                 $title_source = 'cache';
             }
         }
@@ -481,6 +493,7 @@ class LautFmAPI {
         $res .= '$cache[\'artist_thumb\'] = \''.$this->sanitizeForCache($artist_thumb).'\';'."\n";
         $res .= '$cache[\'album\'] = \''.$this->sanitizeForCache($album).'\';'."\n";
         $res .= '$cache[\'ends_at\'] = '.(int)$ends_at.';'."\n";
+        $res .= '$cache[\'starts_at\'] = '.(int)$starts_at.';'."\n";
         $res .= '$cache[\'listner\'] = '.(int)$listner.';'."\n";
         $res .= '$cache[\'genre\'] = \''.$this->sanitizeForCache($genre).'\';'."\n";
         $res .= '$cache[\'is_live\'] = '.(int)$is_live.';'."\n";
@@ -657,6 +670,7 @@ class LexyCastAPI extends LautFmAPI {
             'artist_thumb'  => '',
             'album'         => '',
             'ends_at'       => 0,
+            'starts_at'     => 0,
             'listner'       => 0,
             'genre'         => '',
             'is_live'       => 0,
@@ -736,11 +750,12 @@ class LexyCastAPI extends LautFmAPI {
                 $cache['song'] = $cache['title'] !== '' ? $cache['title'] : self::text($current, 'metadata');
             }
             if (!empty($current['ts']) && !empty($current['length'])) {
-                $cache['ends_at'] = (int)floor($current['ts'] / 1000) + (int)round($current['length'] / 1000);
+                $cache['starts_at'] = (int)floor($current['ts'] / 1000);
+                $cache['ends_at'] = $cache['starts_at'] + (int)round($current['length'] / 1000);
             }
             $cache['title_source'] = 'api';
         } elseif (!empty($previous_cache['song']) && isset($previous_cache['title_source']) && $previous_cache['title_source'] !== 'fallback') {
-            foreach (array('song', 'title', 'artist_name', 'artist_thumb', 'album', 'ends_at') as $key) {
+            foreach (array('song', 'title', 'artist_name', 'artist_thumb', 'album', 'starts_at', 'ends_at') as $key) {
                 if (isset($previous_cache[$key])) {
                     $cache[$key] = $previous_cache[$key];
                 }

@@ -34,7 +34,7 @@ if (file_exists(CXM_RADIOSTATUS.'locale/'.LOCALESET.'index.php')) {
     require CXM_RADIOSTATUS.'locale/German/index.php';
 }
 
-require_once THEMES.'templates/header.php';
+require_once INCLUDES.'output_handling_include.php';
 add_to_head('<link rel="stylesheet" type="text/css" href="'.CXM_RADIOSTATUS.'css/cxm_radiostatus.css" />');
 
 $streams = array();
@@ -50,21 +50,26 @@ if ((!$stream_id || !in_array($stream_id, $stream_ids, true)) && !empty($streams
     $stream_id = (int)$streams[0]['rs_id'];
 }
 
-opentable($locale['cxmrswb_admin_page']);
+// Inhalt puffern, damit CSS und Skripte vor dem Theme-Kopf registriert sind
+ob_start();
+echo '<div class="cxm-a">';
+echo '<header class="cxm-a-top"><div class="cxm-a-title"><h1>'.$locale['cxmrswb_admin_page'].'</h1><p>'.$locale['cxmrsa_wb_lead'].'</p></div>'
+    .'<a href="'.CXM_RADIOSTATUS.'cxm_radiostatus_admin.php'.$aidlink.'" class="cxm-a-btn cxm-a-btn-quiet">'.$locale['cxmrsa_back_admin'].'</a></header>';
 
 if (empty($streams)) {
-    echo '<div class="tbl2">'.$locale['cxmrsa_no_streams'].'</div>';
+    echo '<section class="cxm-a-card"><div class="cxm-a-empty"><p>'.$locale['cxmrsa_no_streams'].'</p></div></section>';
 } else {
-    echo '<form method="get" action="'.FUSION_SELF.'" class="cxm-rs-stream-select-form">';
-    echo '<select name="stream" class="textbox" onchange="this.form.submit()">';
-    foreach ($streams as $stream) {
-        echo '<option value="'.$stream['rs_id'].'"'.($stream_id === (int)$stream['rs_id'] ? ' selected="selected"' : '').'>'
-            .htmlspecialchars($stream['rs_name']).'</option>';
+    if (count($streams) > 1) {
+        echo '<nav class="cxm-a-nav"><ul class="cxm-a-tabs">';
+        foreach ($streams as $stream) {
+            $active = $stream_id === (int)$stream['rs_id'];
+            echo '<li><a href="'.FUSION_SELF.'?stream='.(int)$stream['rs_id'].'"'.($active ? ' class="is-active" aria-current="page"' : '').'>'
+                .htmlspecialchars($stream['rs_name']).'</a></li>';
+        }
+        echo '</ul></nav>';
     }
-    echo '</select>';
-    echo '</form>';
 
-    echo '<div id="cxm-rs-wb-admin"><div class="tbl2">'.$locale['cxmrswb_wait'].'</div></div>';
+    echo '<section class="cxm-a-card cxm-a-card-flush" id="cxm-rs-wb-admin" aria-live="polite"><div class="cxm-a-empty"><p>'.$locale['cxmrswb_wait'].'</p></div></section>';
 
     add_to_head('<script type="text/javascript">
     var cxmRsWbStream = '.$stream_id.';
@@ -88,7 +93,10 @@ if (empty($streams)) {
     </script>');
 }
 
-closetable();
+echo '</div>';
+$cxm_rs_page = ob_get_clean();
+require_once THEMES.'templates/header.php';
+echo $cxm_rs_page;
 
 require_once THEMES.'templates/footer.php';
 ?>

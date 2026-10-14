@@ -56,13 +56,23 @@ Die Einstellungen im Adminbereich umfassen:
 - laut.fm API-Basis-URL, Standard: `https://api.laut.fm`.
 - Datumsformat für die Wunschbox.
 
+## Designs
+
+Jeder Stream bekommt im Admin unter **Design** ein Layout und einen Stil, ausgewählt per Karte mit Live-Vorschau (Beispieldaten, umschaltbar Seiten- und Hauptpanel). Alle neuen Layouts funktionieren links/rechts und in der Mitte und passen sich der Panelbreite an.
+
+- **Layouts:** Cover groß, Kompakt, Studio (Moderator und OnAir-Schild im Mittelpunkt), Moderator (großes Moderatorbild mit Name), Sendung (OnAir-Leiste mit Moderator), Moderator & Cover (beide Bilder nebeneinander), Mit Verlauf (zuletzt gespielte Titel, bei laut.fm auch die nächsten Künstler). Das bisherige Banner-Design bleibt als **Klassisch** wählbar; das alte Design mit Audio-Player ist entfallen, Streams damit bekommen automatisch „Cover groß“.
+- **Stile:** Modern, Hitparade (Ultramarin mit leuchtenden Titelschildern), Jukebox (Ochsenblut, Chrom, getippte Titelstreifen), Mixtape (Kassettenetikett mit Kugelschreiber-Titel), Vinyl (das Cover dreht sich als Platte), Autoradio (bernsteinfarbenes Display), Strand (Titel auf einer Postkarte), Stübchen (Holz und Messingschild). Der Stil gilt auch für Popup-Player, iframe-Embed und Wunschbox; unter **Stil im Player** kann der Player einen eigenen Stil bekommen.
+- **Wunschbox-Verwaltung:** eigene helle Fläche mit Reitern pro Stream, neue Wünsche hervorgehoben.
+- **Im Panel:** Play/Pause direkt im Panel (läuft beim automatischen Aktualisieren weiter), Fortschrittsbalken mit echter Restlaufzeit, Lauftext nur bei langen Titeln, Animation beim Titelwechsel.
+- **Schriften:** liegen lokal in `fonts/` (SIL Open Font License), es werden keine externen Dienste geladen.
+
 ## Updates
 
 1. Datenbank und vorhandene Infusion-Dateien sichern.
 2. Dateien in `infusions/cxm_radiostatus_panel/` ersetzen.
 3. Generierte Cachedateien nicht in Release-Pakete übernehmen.
 4. Schreibrechte des Cache-Ordners erneut prüfen.
-5. Adminbereich öffnen und Stream-Einstellungen kontrollieren. Beim ersten Aufruf ergänzt er bei Updates von 1.1 die Spalte `rs_source` (bestehende Streams bleiben laut.fm).
+5. Adminbereich öffnen und Stream-Einstellungen kontrollieren. Beim ersten Aufruf ergänzt er fehlende Spalten (`rs_source`, `rs_skin`, `rs_player_skin`). Bestehende Streams bleiben bei laut.fm.
 
 ## Deinstallation
 
